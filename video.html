@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>StreamHub Nafisa</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* Base Video Wrapper style (padding-bottom will be set dynamically via JS) */
+        .video-wrapper {
+            position: relative;
+            height: 0;
+            overflow: hidden;
+            background: #000;
+            border-radius: 12px;
+            transition: padding-bottom 0.3s ease-in-out;
+            box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.2); 
+        }
+        .video-wrapper iframe {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%; border: 0;
+            z-index: 10; 
+        }
+        
+        /* Overlay to block long-press context menu on iframe */
+        #iframe-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 0%;
+            height: 0%;
+            z-index: 20; 
+            background: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+            -ms-user-select: none;
+            -moz-user-select: none;
+            touch-action: manipulation;
+        }
+
+        /* Tap Highlight removal for mobile */
+        * { -webkit-tap-highlight-color: transparent; }
+        
+        /* Thumbnail Active State - Enhanced Visuals */
+        .thumbnail-active {
+            border-color: #4f46e5 !important; /* Indigo highlight */
+            transform: scale(1.03);
+            box-shadow: 0 6px 16px rgba(79, 70, 229, 0.3); /* Stronger active shadow */
+        }
+
+        /* Loading Skeleton Style */
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+            border-radius: 4px;
+        }
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        
+        /* Fixed Header Shadow on Scroll */
+        .header-shadow {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.06);
+        }
+    </style>
+</head>
+
+<!-- Body uses a slightly lighter background for better contrast with the white container -->
+<body class="bg-gray-50 font-sans text-gray-900 select-none transition-colors duration-300">
+
+    <div class="max-w-md mx-auto bg-white min-h-screen shadow-2xl relative transition-colors duration-300">
+        
+        <!-- HEADER (Sticky, Enhanced Shadow) -->
+        <header id="main-header" class="p-4 bg-white sticky top-0 z-20 border-b border-gray-100 transition-all duration-300">
+            
+            <div class="flex items-center justify-between">
+                
+                <!-- App Name or Logo - Dynamic Content -->
+                <div id="app-branding" class="h-8 flex-shrink-0 mr-3">
+                    <h1 id="app-name-text" class="text-2xl font-extrabold tracking-tight text-indigo-600"></h1>
+                    <img id="app-logo-image" src="" alt="App Logo" class="h-full object-contain hidden" onerror="this.classList.add('hidden'); document.getElementById('app-name-text').classList.remove('hidden');">
+                </div>
+                
+                <!-- SEARCH INPUT FIELD (Enhanced Look) -->
+                <div class="relative flex-grow">
+                    <input type="text" id="search-input" placeholder="ভিডিও খুঁজুন..."
+                           class="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 rounded-full focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-inner bg-white text-gray-900 placeholder-gray-400">
+                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-indigo-500"></i>
+                </div>
+                <!-- END SEARCH INPUT FIELD -->
+                
+                <!-- Connection Status -->
+                <div class="flex items-center ml-3 flex-shrink-0">
+                    <div id="connection-status" title="Connection Status" class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-lg"></div>
+                </div>
+
+            </div>
+        </header>
+        <!-- END HEADER -->
+
+
+        <!-- MAIN SCROLLABLE CONTENT -->
+        <main class="p-4 space-y-6 pt-0">
+            
+            <!-- Video Player Section -->
+            <div id="featured-section" class="pt-4">
+                <div class="relative w-full rounded-xl overflow-hidden bg-black shadow-2xl">
+                    <div id="video-wrapper" class="video-wrapper">
+                        <!-- Transparent overlay to capture long-press and right-click events -->
+                        <div id="iframe-overlay"></div>
+                        <!-- Player is loaded here -->
+                        <iframe id="main-player" src="" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Video Details Section -->
+            <div id="video-details" class="mt-4 pb-4 border-b border-gray-200">
+                
+                <!-- Loading Skeleton for Title & Description -->
+                <div id="details-skeleton" class="space-y-3 px-1">
+                    <div class="skeleton w-3/4 h-7"></div>
+                    <div class="skeleton w-1/3 h-4"></div>
+                    <div class="skeleton w-full h-4"></div>
+                    <div class="skeleton w-5/6 h-4"></div>
+                    <div class="skeleton w-1/4 h-4"></div>
+                </div>
+                
+                <!-- Actual Content (Hidden initially) -->
+                <div id="details-content" class="hidden px-1">
+                    <!-- Title is now text-2xl and bolder -->
+                    <h2 id="vid-title" class="text-2xl font-extrabold leading-tight min-h-[1.5em] mb-3 text-gray-900"></h2>
+                    
+                    <!-- Stats & Reaction Bar -->
+                    <div class="flex items-center justify-between py-3">
+                        
+                        <!-- Duration & Views -->
+                        <div class="flex items-center space-x-5 text-sm font-medium text-gray-500">
+                            <!-- Duration badge is styled more prominently -->
+                            <span id="vid-duration" class="bg-indigo-50 text-indigo-700 px-3.5 py-1.5 rounded-lg text-xs font-bold font-mono shadow-sm transition-colors ring-1 ring-indigo-100">--:--</span>
+                            <span class="flex items-center"><i class="far fa-eye mr-2 text-sm text-gray-400"></i> <span id="vid-views" class="text-gray-600 font-semibold">0</span>&nbsp;views</span>
+                        </div>
+                        
+                        <!-- Reaction Button - Styled for better tap feedback -->
+                        <button id="reaction-btn" 
+                                class="flex items-center space-x-2 text-sm text-gray-500 hover:text-red-600 transition-all duration-150 transform hover:scale-105 active:scale-90 focus:outline-none p-2 -m-2 rounded-full"
+                                aria-label="Like Video">
+                            <i id="heart-icon" class="far fa-heart text-xl transition-colors"></i> 
+                            <span id="vid-likes" class="font-bold text-base">0</span>
+                        </button>
+                    </div>
+                    
+                    <!-- Description Box - Clearer background and border -->
+                    <p id="vid-desc" class="mt-4 text-sm leading-relaxed p-4 rounded-xl border text-gray-700 bg-gray-50 border-gray-200 shadow-inner transition-colors"></p>
+                </div>
+            </div>
+            
+            <!-- Playlist Section -->
+            <div>
+                <h3 id="playlist-title" class="text-xs font-bold text-indigo-600 uppercase tracking-widest mb-4 border-b-2 border-indigo-200 pb-1.5 transition-colors">Up Next</h3>
+                <div id="playlist-container" class="grid grid-cols-2 gap-4 pb-12">
+                    <!-- Video thumbnails will be dynamically added here -->
+                </div>
+                <p id="no-results" class="text-center text-gray-500 mt-8 hidden p-5 border-2 border-dashed rounded-lg border-gray-300">কোনো ভিডিও খুঁজে পাওয়া যায়নি।</p>
+                
+                <!-- Infinite Scroll Indicators -->
+                <div id="loading-indicator" class="text-center py-8 hidden text-indigo-500 font-semibold text-sm">
+                    <i class="fas fa-spinner fa-spin mr-2"></i> ভিডিও লোড হচ্ছে...
+                </div>
+                <p id="end-of-list" class="text-center py-8 hidden text-gray-400 text-xs border-t pt-4 mt-4 border-gray-200">আর কোনো ভিডিও নেই।</p>
+            </div>
+        </main>
+        <!-- END MAIN SCROLLABLE CONTENT -->
+        
+        <!-- Modern Toast Notification -->
+        <div id="toast" class="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-indigo-700/95 backdrop-blur-sm text-white px-6 py-3 rounded-xl text-sm shadow-2xl opacity-0 transition-all duration-300 pointer-events-none z-50 font-medium">
+            Notification
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, increment, query, where, orderBy, Timestamp, addDoc, limit, startAfter } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+        
+        // Firebase Configuration (Using provided mock data)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBiJoieCYKUbGcl0-oEjT6Xg8R42dSl8Ho",
+  authDomain: "online-watch-16a5d.firebaseapp.com",
+  databaseURL: "https://online-watch-16a5d-default-rtdb.firebaseio.com",
+  projectId: "online-watch-16a5d",
+  storageBucket: "online-watch-16a5d.firebasestorage.app",
+  messagingSenderId: "680675101884",
+  appId: "1:680675101884:web:6410d3b562be40bf7e94b9",
+  measurementId: "G-8JGM969792"
+};          
+  
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // --- GLOBAL STATE FOR PAGINATION/LAZY LOAD ---
+        const PAGE_SIZE = 12; 
+        let lastVisible = null; 
+        let isLoading = false; 
+        let hasMore = true; 
+        let currentSearchQuery = ''; 
+        
+        let currentVideo = null;
+        let activeThumbnailElement = null;
+        let allVideos = []; 
+        let placeholderUrl = 'https://placehold.co/1280x720/e0e0e0/333333?text=No+Image'; // Default
+        
+        // --- HELPER: UUID Generator ---
+        function generateUUID() {
+            if (typeof crypto.randomUUID !== 'undefined') return crypto.randomUUID();
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
+        let guestId = localStorage.getItem('guest_id');
+        if (!guestId) {
+            guestId = generateUUID();
+            localStorage.setItem('guest_id', guestId);
+        }
+
+        // --- DOM ELEMENTS ---
+        const ui = {
+            header: document.getElementById('main-header'), // Added
+            player: document.getElementById('main-player'),
+            wrapper: document.getElementById('video-wrapper'),
+            overlay: document.getElementById('iframe-overlay'),
+            title: document.getElementById('vid-title'),
+            desc: document.getElementById('vid-desc'),
+            duration: document.getElementById('vid-duration'),
+            views: document.getElementById('vid-views'),
+            likes: document.getElementById('vid-likes'),
+            heart: document.getElementById('heart-icon'),
+            playlist: document.getElementById('playlist-container'),
+            playlistTitle: document.getElementById('playlist-title'),
+            searchInput: document.getElementById('search-input'), 
+            noResults: document.getElementById('no-results'),
+            toast: document.getElementById('toast'),
+            reactionBtn: document.getElementById('reaction-btn'),
+            skeleton: document.getElementById('details-skeleton'),
+            content: document.getElementById('details-content'),
+            appNameText: document.getElementById('app-name-text'),
+            appLogoImage: document.getElementById('app-logo-image'),
+            featuredSection: document.getElementById('featured-section'),
+            loadingIndicator: document.getElementById('loading-indicator'),
+            endOfList: document.getElementById('end-of-list'),
+        };
+
+        // --- UTILITY: Debounce for search ---
+        function debounce(func, timeout = 300) {
+            let timer;
+            return (...args) => {
+                clearTimeout(timer);
+                timer = setTimeout(() => { func.apply(this, args); }, timeout);
+            };
+        }
+        
+        // --- LONG PRESS BLOCKING LOGIC ---
+        function setupLongPressBlocker() {
+            // Prevent context menu (right-click on desktop, long-press on mobile)
+            ui.overlay.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+            });
+            
+            // Basic touch handling to prevent unwanted touch actions
+            let touchStartTimer = null;
+            const LONG_PRESS_THRESHOLD = 500; 
+
+            ui.overlay.addEventListener('touchstart', (e) => {
+                touchStartTimer = setTimeout(() => {
+                    // This is where a custom long-press action could trigger, but we are just blocking default browser behavior.
+                }, LONG_PRESS_THRESHOLD);
+            }, { passive: false }); 
+
+            ui.overlay.addEventListener('touchend', () => {
+                clearTimeout(touchStartTimer);
+            });
+
+            ui.overlay.addEventListener('touchcancel', () => {
+                clearTimeout(touchStartTimer);
+            });
+        }
+        
+        // --- HEADER SCROLL SHADOW UX FIX ---
+        function handleHeaderShadow() {
+            if (window.scrollY > 0) {
+                ui.header.classList.add('header-shadow');
+            } else {
+                ui.header.classList.remove('header-shadow');
+            }
+        }
+
+        // --- HELPER: Create Sandboxed iFrame ---
+        function createSandboxedIframe(videoUrl, useSandbox) {
+            // সম্পূর্ণ নতুন iFrame তৈরি করুন
+            const iframe = document.createElement('iframe');
+            iframe.id = 'main-player';
+            
+            // আগের iFrame সম্পূর্ণ remove করুন
+            const existingIframe = ui.wrapper.querySelector('iframe');
+            if (existingIframe) {
+                existingIframe.remove();
+            }
+            
+            iframe.src = videoUrl;
+            iframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
+            iframe.setAttribute('allowfullscreen', 'true');
+            iframe.setAttribute('frameborder', '0');
+            iframe.style.position = 'absolute';
+            iframe.style.top = '0';
+            iframe.style.left = '0';
+            iframe.style.width = '100%';
+            iframe.style.height = '100%';
+            iframe.style.border = '0';
+            
+            if (useSandbox === true) {
+                // ✅ নিরাপদ স্যান্ডবক্স সেটিংস - শুধুমাত্র ভিডিও প্লেব্যাকের জন্য প্রয়োজনীয়
+                iframe.setAttribute('sandbox', 
+                    'allow-scripts ' +           // JavaScript চালানোর অনুমতি
+                    'allow-same-origin ' +       // Same-origin requests
+                    'allow-presentation ' +      // Fullscreen/Presentation
+                    'allow-popups-to-escape-sandbox' // শুধুমাত্র sandbox থেকে বের হওয়ার জন্য popup
+                );
+                
+                // ✅ sandbox attribute থাকলে referrerpolicy সেট করুন
+                iframe.setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
+                
+                console.log('🔒 স্যান্ডবক্স সক্রিয়: ভিডিও নিরাপদ মোডে চলছে', {
+                    url: videoUrl,
+                    sandbox: iframe.getAttribute('sandbox')
+                });
+            } else {
+                // ❌ স্যান্ডবক্স নিষ্ক্রিয় হলে sandbox attribute সম্পূর্ণ remove করুন
+                iframe.removeAttribute('sandbox');
+                iframe.removeAttribute('referrerpolicy');
+                
+                console.log('⚠️ স্যান্ডবক্স নিষ্ক্রিয়: ভিডিও পূর্ণ অ্যাক্সেস মোডে', {
+                    url: videoUrl,
+                    sandbox: 'disabled'
+                });
+            }
+            
+            // নতুন iFrame যোগ করুন
+            ui.wrapper.appendChild(iframe);
+            
+            // iFrame লোড হওয়ার পর sandbox status verify করুন
+            iframe.onload = () => {
+                console.log('📺 iFrame লোড সম্পূর্ণ', {
+                    hasSandbox: iframe.hasAttribute('sandbox'),
+                    sandboxValue: iframe.getAttribute('sandbox'),
+                    useSandbox: useSandbox
+                });
+                
+                // verify sandbox status
+                if (useSandbox === true && !iframe.hasAttribute('sandbox')) {
+                    console.error('❌ স্যান্ডবক্স attribute সেট করা হয়নি!');
+                    // force sandbox attribute
+                    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-presentation allow-popups-to-escape-sandbox');
+                }
+                
+                if (useSandbox === false && iframe.hasAttribute('sandbox')) {
+                    console.error('❌ স্যান্ডবক্স attribute remove করা হয়নি!');
+                    // force remove sandbox attribute
+                    iframe.removeAttribute('sandbox');
+                }
+            };
+            
+            return iframe;
+        }
+
+        // --- INIT ---
+        async function init() {
+            setupLongPressBlocker(); 
+            window.addEventListener('scroll', handleHeaderShadow);
+
+            await loadAppConfig();
+
+            // Show skeleton while loading
+            ui.skeleton.classList.remove('hidden');
+            ui.content.classList.add('hidden');
+
+            // Update guest status
+            await setDoc(doc(db, 'guests', guestId), {
+                guest_id: guestId,
+                last_active_timestamp: Timestamp.now(),
+                device_token: navigator.userAgent
+            }, { merge: true });
+
+            // Initial video load (first page)
+            await loadVideos(false); 
+
+            // Set up event listeners
+            ui.searchInput.addEventListener('keyup', debounce(handleSearchInput));
+            ui.searchInput.addEventListener('change', handleSearchInput); 
+            window.addEventListener('scroll', handleScroll);
+
+            if (allVideos.length > 0) {
+                 selectVideo(allVideos[0], false); 
+                 ui.skeleton.classList.add('hidden');
+                 ui.content.classList.remove('hidden');
+            } else {
+                 ui.skeleton.classList.add('hidden');
+                 ui.content.classList.remove('hidden');
+                 ui.title.innerText = "এই মুহূর্তে কোনো ভিডিও নেই।";
+                 ui.desc.innerText = "নতুন ভিডিও শীঘ্রই আসছে।";
+            }
+        }
+
+        // --- CORE LOGIC: APP CONFIGURATION ---
+        async function loadAppConfig() {
+            try {
+                const s = await getDoc(doc(db, 'settings', 'appConfig'));
+                if (s.exists()) {
+                    const d = s.data();
+                    const appName = d.app_name || 'StreamHub';
+                    const logoUrl = d.logo_url || '';
+                    const showLogo = d.show_logo === true;
+                    
+                    // NEW: Load placeholder URL from settings
+                    placeholderUrl = d.placeholder_url || 'https://placehold.co/1280x720/e0e0e0/333333?text=No+Image';
+
+                    ui.appNameText.innerText = appName;
+
+                    if (showLogo && logoUrl) {
+                        ui.appLogoImage.src = logoUrl;
+                        ui.appLogoImage.classList.remove('hidden');
+                        ui.appNameText.classList.add('hidden');
+                    } else {
+                        ui.appNameText.classList.remove('hidden');
+                        ui.appLogoImage.classList.add('hidden');
+                    }
+                }
+            } catch (error) {
+                console.error("Error loading app config:", error);
+                ui.appNameText.innerText = 'StreamHub';
+                ui.appNameText.classList.remove('hidden');
+                ui.appLogoImage.classList.add('hidden');
+                placeholderUrl = 'https://placehold.co/1280x720/e0e0e0/333333?text=No+Image';
+            }
+        }
+
+
+        // --- CORE LOGIC: INFINITE SCROLL LOADER ---
+        async function loadVideos(append = true) {
+            // If no more videos or currently loading, exit
+            if (!hasMore && append) return; 
+            if (isLoading || currentSearchQuery.length > 0) return;
+            
+            isLoading = true;
+            ui.loadingIndicator.classList.remove('hidden');
+            ui.endOfList.classList.add('hidden');
+
+            try {
+                let queryConstraints = [
+                    where('is_published', '==', true), 
+                    orderBy('upload_timestamp', 'desc'),
+                    limit(PAGE_SIZE)
+                ];
+
+                if (lastVisible) {
+                    queryConstraints.push(startAfter(lastVisible));
+                }
+
+                const q = query(collection(db, 'videos'), ...queryConstraints);
+                
+                const snapshot = await getDocs(q);
+                
+                const newVideos = [];
+                snapshot.forEach(docSnap => {
+                    newVideos.push({ id: docSnap.id, ...docSnap.data() });
+                });
+
+                if (newVideos.length === 0) {
+                    hasMore = false;
+                    ui.endOfList.classList.remove('hidden');
+                    if (!append) {
+                        ui.noResults.classList.remove('hidden');
+                    }
+                } else {
+                    lastVisible = snapshot.docs[snapshot.docs.length - 1];
+                    
+                    if (append) {
+                        allVideos = [...allVideos, ...newVideos];
+                        renderPlaylist(newVideos, true);
+                    } else {
+                        allVideos = newVideos;
+                        renderPlaylist(newVideos, false);
+                    }
+                }
+
+            } catch (error) {
+                console.error("Error loading videos:", error);
+                showToast("ভিডিও লোড করতে সমস্যা হয়েছে।");
+            } finally {
+                isLoading = false;
+                ui.loadingIndicator.classList.add('hidden');
+            }
+        }
+
+        // --- SCROLL HANDLER FOR INFINITE SCROLL ---
+        function handleScroll() {
+            if (isLoading || !hasMore || currentSearchQuery.length > 0) {
+                return; 
+            }
+
+            const scrollHeight = document.documentElement.scrollHeight;
+            const scrollTop = document.documentElement.scrollTop;
+            const clientHeight = document.documentElement.clientHeight;
+
+            if (scrollTop + clientHeight >= scrollHeight - 100) {
+                loadVideos(true);
+            }
+        }
+
+        // --- SEARCH HANDLER ---
+        function handleSearchInput() {
+            const queryText = ui.searchInput.value.trim();
+            
+            if (queryText.length > 0) {
+                currentSearchQuery = queryText;
+                ui.playlistTitle.innerText = `খোঁজার ফলাফল: "${queryText}"`.toUpperCase();
+                
+                const filteredVideos = filterVideos(queryText); 
+                renderPlaylist(filteredVideos, false); 
+
+                ui.loadingIndicator.classList.add('hidden');
+                ui.endOfList.classList.add('hidden');
+            } else {
+                currentSearchQuery = '';
+                ui.playlistTitle.innerText = 'Up Next';
+                renderPlaylist(allVideos, false);
+
+                if (!hasMore) {
+                    ui.endOfList.classList.remove('hidden');
+                }
+            }
+        }
+
+        // --- CLIENT-SIDE FILTERING LOGIC ---
+        function filterVideos(queryText) {
+            if (!queryText) return allVideos;
+
+            const normalizedQuery = queryText.toLowerCase();
+            
+            return allVideos.filter(vid => {
+                const title = (vid.title || '').toLowerCase();
+                const description = (vid.description || '').toLowerCase();
+                
+                return title.includes(normalizedQuery) || description.includes(normalizedQuery);
+            });
+        }
+
+        // --- RENDER PLAYLIST ---
+        function renderPlaylist(videos, append = false) {
+            if (!append) {
+                ui.playlist.innerHTML = '';
+                ui.noResults.classList.add('hidden');
+            }
+
+            if (!append && videos.length === 0) {
+                ui.noResults.classList.remove('hidden');
+                return;
+            }
+
+            videos.forEach(vid => {
+                const el = createThumbnail(vid); 
+                vid.element = el;
+                if (currentVideo && currentVideo.id === vid.id) {
+                     el.classList.add('thumbnail-active');
+                     activeThumbnailElement = el;
+                }
+            });
+        }
+
+        // --- THUMBNAIL CREATOR ---
+        function createThumbnail(vid) {
+            const el = document.createElement('div');
+            el.className = "bg-white rounded-xl shadow-md overflow-hidden cursor-pointer transition-all transform hover:scale-[1.02] border-2 border-transparent active:scale-[0.98]";
+            
+            const thumbUrl = vid.thumbnail_url || placeholderUrl;
+            
+            el.innerHTML = `
+                <div class="relative pb-[56.25%] bg-gray-200">
+                    <img src="${thumbUrl}" class="absolute h-full w-full object-cover" loading="lazy" alt="thumb" 
+                         onerror="this.onerror=null;this.src='${placeholderUrl}';">
+                    <!-- Duration badge with dark background -->
+                    <div class="absolute bottom-1 right-1 bg-black/80 text-white text-[10px] px-2 py-0.5 rounded-md font-mono shadow-lg">${vid.duration}</div>
+                    <!-- Sandbox Indicator (NEW) -->
+                    ${vid.use_sandbox === true ? 
+                        '<div class="absolute top-1 right-1 bg-purple-600/90 text-white text-[8px] px-1.5 py-0.5 rounded-md font-bold shadow-lg"><i class="fas fa-shield-alt"></i></div>' : 
+                        ''}
+                    <!-- Aspect Ratio Indicator (NEW) -->
+                    <div class="absolute top-1 left-1 bg-indigo-600/90 text-white text-[8px] px-1.5 py-0.5 rounded-md font-mono shadow-lg">${vid.ratio || '16:9'}</div>
+                </div>
+                <div class="p-3">
+                    <h4 class="text-sm font-semibold leading-snug line-clamp-2 text-gray-800">${vid.title}</h4>
+                    <div class="flex justify-between mt-2 text-xs text-gray-400">
+                        <span><i class="far fa-eye mr-1"></i> ${vid.total_views || 0}</span>
+                        <!-- Sandbox Status Text (NEW) -->
+                        <span class="text-purple-600 font-semibold">
+                            ${vid.use_sandbox === true ? '<i class="fas fa-lock mr-0.5"></i> Secured' : '<i class="fas fa-unlock mr-0.5"></i> Unsecured'}
+                        </span>
+                    </div>
+                </div>
+            `;
+            el.dataset.videoId = vid.id; 
+            el.onclick = () => selectVideo(vid);
+            ui.playlist.appendChild(el);
+            return el;
+        }
+
+        // --- CORE LOGIC: VIDEO SELECTION ---
+        async function selectVideo(vid, isUserAction = true) {
+            const isInitialLoad = (currentVideo === null); 
+            
+            if (currentVideo && currentVideo.id === vid.id && isUserAction) return; 
+            
+            ui.skeleton.classList.add('hidden');
+            ui.content.classList.remove('hidden');
+
+            if (activeThumbnailElement) {
+                activeThumbnailElement.classList.remove('thumbnail-active');
+            }
+
+            currentVideo = vid;
+
+            if (vid.element) {
+                vid.element.classList.add('thumbnail-active');
+                activeThumbnailElement = vid.element;
+            }
+            
+            updateVideoDetails(vid);
+            setDynamicRatio(vid.ratio);
+
+            // সম্পূর্ণ নতুন iFrame তৈরি করুন sandbox status অনুযায়ী
+            createSandboxedIframe(vid.video_url, vid.use_sandbox);
+            
+            await checkUserReaction(vid.id);
+
+            if (isUserAction || isInitialLoad) {
+                await incrementViewCount(vid.id);
+                if (isUserAction) { 
+                    showToast(`ভিডিও শুরু হয়েছে: ${vid.title}`);
+                    ui.featuredSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }
+        }
+
+        function updateVideoDetails(vid) {
+            ui.title.innerText = vid.title;
+            ui.desc.innerText = vid.description || 'কোনো বর্ণনা নেই।';
+            ui.duration.innerText = vid.duration;
+            ui.views.innerText = (vid.total_views || 0).toString(); 
+            ui.likes.innerText = (vid.total_reactions || 0).toString();
+            
+            // Add aspect ratio info to description (NEW)
+            if (vid.ratio && vid.ratio !== '16:9') {
+                ui.desc.innerText += `\n\nঅ্যাস্পেক্ট রেশিও: ${vid.ratio}`;
+            }
+            
+            // Add sandbox security info (NEW)
+            if (vid.use_sandbox === true) {
+                ui.desc.innerText += `\n\n🔒 স্যান্ডবক্স নিরাপত্তা: সক্রিয়`;
+                ui.desc.innerText += `\n✅ অনুমতি: JavaScript, Same-origin, Fullscreen`;
+                ui.desc.innerText += `\n❌ ব্লক করা: Top-navigation, Popups, Forms, Downloads`;
+            } else {
+                ui.desc.innerText += `\n\n⚠️ স্যান্ডবক্স নিরাপত্তা: নিষ্ক্রিয়`;
+                ui.desc.innerText += `\n📢 সমস্ত অনুমতি: পূর্ণ অ্যাক্সেস মোড`;
+            }
+            
+            ui.heart.className = "far fa-heart text-xl transition-colors";
+            ui.reactionBtn.classList.remove("text-red-500");
+            ui.reactionBtn.disabled = false;
+        }
+
+        function setDynamicRatio(ratioStr) {
+            const ratio = ratioStr || '16:9'; 
+            const [w, h] = ratio.split(':').map(Number);
+            
+            if (w > 0 && h > 0) {
+                const paddingBottom = ((h / w) * 100).toFixed(2) + '%';
+                ui.wrapper.style.paddingBottom = paddingBottom;
+            } else {
+                ui.wrapper.style.paddingBottom = '56.25%';
+            }
+        }
+
+
+        // --- CHECK USER REACTION STATUS ---
+        async function checkUserReaction(vidId) {
+            ui.heart.className = "far fa-heart text-xl transition-colors";
+            ui.reactionBtn.classList.remove("text-red-500");
+            ui.reactionBtn.disabled = false;
+
+            try {
+                const q = query(
+                    collection(db, 'reactions'),
+                    where('guest_id', '==', guestId),
+                    where('video_id', '==', vidId),
+                    where('type', '==', 'like')
+                );
+                const snap = await getDocs(q);
+
+                if (snap.docs.length > 0) {
+                    ui.heart.className = "fas fa-heart text-xl transition-colors";
+                    ui.reactionBtn.classList.add("text-red-500");
+                    ui.reactionBtn.disabled = true; 
+                }
+            } catch (error) {
+                console.error("Error checking reaction status:", error);
+            }
+        }
+        
+        // --- VIEW COUNT INCREMENT LOGIC ---
+        async function incrementViewCount(vidId) {
+            try {
+                const vRef = doc(db, 'videos', vidId);
+                await updateDoc(vRef, { total_views: increment(1) });
+                ui.views.innerText = (parseInt(ui.views.innerText, 10) + 1).toString();
+            } catch (err) { 
+                console.error("Firestore Write Error (View Increment):", err); 
+            }
+        }
+
+        // --- REACTION LOGIC ---
+        ui.reactionBtn.onclick = async () => {
+            if (!currentVideo || ui.reactionBtn.disabled) return; 
+
+            // Optimistic Update
+            ui.reactionBtn.disabled = true; 
+            ui.reactionBtn.classList.add("text-red-500");
+            ui.heart.className = "fas fa-heart text-xl transition-colors"; 
+            ui.likes.innerText = (parseInt(ui.likes.innerText, 10) + 1).toString();
+
+            try {
+                // Log individual reaction
+                await addDoc(collection(db, 'reactions'), {
+                    video_id: currentVideo.id,
+                    guest_id: guestId,
+                    type: 'like',
+                    timestamp: Timestamp.now()
+                });
+
+                // Increment aggregate
+                await updateDoc(doc(db, 'videos', currentVideo.id), {
+                    total_reactions: increment(1)
+                });
+                showToast("পছন্দ হয়েছে! ধন্যবাদ।");
+            } catch (e) { 
+                console.error("Reaction write failed:", e); 
+                // Revert visual change and enable button if write fails
+                ui.reactionBtn.classList.remove("text-red-500");
+                ui.heart.className = "far fa-heart text-xl transition-colors"; 
+                ui.likes.innerText = (parseInt(ui.likes.innerText, 10) - 1).toString();
+                ui.reactionBtn.disabled = false;
+                showToast("লাইক দিতে সমস্যা হয়েছে। আবার চেষ্টা করুন।");
+            }
+        };
+
+        function showToast(msg) {
+            ui.toast.innerText = msg;
+            ui.toast.classList.remove('opacity-0');
+            ui.toast.classList.add('opacity-100');
+            setTimeout(() => {
+                ui.toast.classList.remove('opacity-100');
+                ui.toast.classList.add('opacity-0');
+            }, 3000);
+        }
+
+        init();
+    </script>
+</body>
+</html>
